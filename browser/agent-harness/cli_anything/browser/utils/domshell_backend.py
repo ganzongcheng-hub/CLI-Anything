@@ -26,12 +26,24 @@ from mcp.client.stdio import stdio_client
 #   DOMSHELL_TOKEN  — auth token (required, must match the running server)
 #   DOMSHELL_PORT   — MCP HTTP port of the running server (default: 3001)
 DEFAULT_SERVER_CMD = "npx"
-DEFAULT_SERVER_ARGS = [
-    "-p", "@apireno/domshell",
-    "domshell-proxy",
-    "--port", os.environ.get("DOMSHELL_PORT", "3001"),
-    "--token", os.environ.get("DOMSHELL_TOKEN", ""),
-]
+
+
+def _build_server_args() -> list[str]:
+    """Build server args at call time so env var changes are honored."""
+    token = os.environ.get("DOMSHELL_TOKEN", "")
+    if not token:
+        raise RuntimeError(
+            "DOMSHELL_TOKEN environment variable is required.\n"
+            "Set it to the auth token of your running DOMShell server.\n"
+            "Example: export DOMSHELL_TOKEN=<token from DOMShell startup>"
+        )
+    port = os.environ.get("DOMSHELL_PORT", "3001")
+    return [
+        "-p", "@apireno/domshell",
+        "domshell-proxy",
+        "--port", port,
+        "--token", token,
+    ]
 
 # Daemon mode: persistent MCP connection
 _daemon_session: Optional[ClientSession] = None
@@ -130,7 +142,7 @@ async def _call_tool(
     # Spawn new MCP server process
     server_params = StdioServerParameters(
         command=DEFAULT_SERVER_CMD,
-        args=DEFAULT_SERVER_ARGS
+        args=_build_server_args()
     )
 
     try:
@@ -167,7 +179,7 @@ async def _start_daemon() -> bool:
 
     server_params = StdioServerParameters(
         command=DEFAULT_SERVER_CMD,
-        args=DEFAULT_SERVER_ARGS
+        args=_build_server_args()
     )
 
     try:
@@ -388,7 +400,7 @@ def type_text(path: str, text: str, use_daemon: bool = False) -> dict:
 
         server_params = StdioServerParameters(
             command=DEFAULT_SERVER_CMD,
-            args=DEFAULT_SERVER_ARGS
+            args=_build_server_args()
         )
         async with stdio_client(server_params) as (read, write):
             async with ClientSession(read, write) as session:
